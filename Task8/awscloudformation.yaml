@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: Build Vpc
 Resources:
-  Task8VPC:
+  AjaVPC:
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: 192.168.0.0/16
@@ -9,124 +9,143 @@ Resources:
       EnableDnsHostnames: 'true'
       Tags:
        - Key: Name
-         Value: Task8-Vpc
+         Value: Aja-Vpc
 
-  Task8InternetGateway:
+  AjaInternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
       - Key: Name
-        Value: Task8-IGW
+        Value: Aja-IGW
 
-  Task8AttachGateway:
+  AjaAttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
       VpcId:
-         Ref: Task8VPC
+         Ref: AjaVPC
       InternetGatewayId:
-         Ref: Task8InternetGateway
+         Ref: AjaInternetGateway
 
-  Task8PubSubnet:
+  AjaPubSubnet:
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId: !Ref Task8VPC
+      VpcId: !Ref AjaVPC
       CidrBlock: 192.168.0.0/24
       AvailabilityZone: "us-east-1a"
       Tags:
       - Key: Name
-        Value: Task8-Pub-Sub
+        Value: Aja-Pub-Sub
 
-  Task8PvtSubnet:
+  AjaPvtSubnet:
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId: !Ref Task8VPC
+      VpcId: !Ref AjaVPC
       CidrBlock: 192.168.1.0/24
-      AvailabilityZone: "us-east-1a"
+      AvailabilityZone: "us-east-1b"
       Tags:
       - Key: Name
-        Value: Task8-Pvt-Sub
+        Value: Aja-Pvt-Sub
 
-  Task8PubRouteTable:
+  AjaPubRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId:  
-        Ref: Task8VPC
+        Ref: AjaVPC
       Tags:
       - Key: Name
-        Value: Task8-Pub-Rt
+        Value: Aja-Pub-Rt
 
-  Task8PvtRouteTable:
+  AjaPvtRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId:  
-        Ref: Task8VPC
+        Ref: AjaVPC
       Tags:
       - Key: Name
-        Value: Task8-Pvt-Rt
+        Value: Aja-Pvt-Rt
 
-  Task8PubSubnetRouteTableAssociation:
+  AjaPubSubnetRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId:
-        Ref: Task8PubSubnet
+        Ref: AjaPubSubnet
       RouteTableId:
-        Ref: Task8PubRouteTable
+        Ref: AjaPubRouteTable
 
-  Task8PvtSubnetRouteTableAssociation:
+  AjaPvtSubnetRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId:
-        Ref: Task8PvtSubnet
+        Ref: AjaPvtSubnet
       RouteTableId:
-        Ref: Task8PvtRouteTable
+        Ref: AjaPvtRouteTable
 
-  Task8Route:
+  AjaRoute:
     Type: AWS::EC2::Route
-    DependsOn: Task8AttachGateway
+    DependsOn: AjaAttachGateway
     Properties:
        RouteTableId:
-         Ref: Task8PubRouteTable
+         Ref: AjaPubRouteTable
        DestinationCidrBlock: 0.0.0.0/0
        GatewayId:
-         Ref: Task8InternetGateway
-  InstanceSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Allow http to client host
-      VpcId: !Ref Task8VPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
-      SecurityGroupEgress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
+         Ref: AjaInternetGateway
 
-  InstanceSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
+  SSHSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
     Properties:
-      GroupDescription: Allow ssh to client host
-      VpcId: !Ref Task8VPC
+      GroupDescription: "Enable SSH access"
+      VpcId: !Ref AjaVPC
       SecurityGroupIngress:
-        - IpProtocol: tcp
+        - IpProtocol: "tcp"
           FromPort: 22
           ToPort: 22
-          CidrIp: 0.0.0.0/0
-      SecurityGroupEgress:
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: 0.0.0.0/0
-
-  MyKeyPair:
-    Type: AWS::EC2::KeyPair
+          CidrIp: "0.0.0.0/0"
+      Tags:
+        - Key: Name
+          Value: "SSHSecurityGroup"
+ 
+  HTTPSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
     Properties:
-      KeyName: MyKeyPair
+      GroupDescription: "Enable HTTP access"
+      VpcId: !Ref AjaVPC
+      SecurityGroupIngress:
+        - IpProtocol: "tcp"
+          FromPort: 80
+          ToPort: 80
+          CidrIp: "0.0.0.0/0"
+      Tags:
+        - Key: Name
+          Value: "HTTPSecurityGroup"
+
 
   
-  
-  
+
+  PublicInstance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      InstanceType: "t2.micro"
+      SubnetId: !Ref AjaPubSubnet
+      ImageId: "ami-0984f4b9e98be44bf"  
+      SecurityGroupIds:
+        - !Ref SSHSecurityGroup
+        - !Ref HTTPSecurityGroup
+      KeyName: "cfvpc"
+      Tags:
+        - Key: Name
+          Value: "PublicInstance"
+ 
+  PrivateInstance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      InstanceType: "t2.micro"
+      SubnetId: !Ref AjaPvtSubnet
+      ImageId: "ami-0984f4b9e98be44bf"
+      SecurityGroupIds:
+        - !Ref SSHSecurityGroup
+        - !Ref HTTPSecurityGroup
+      KeyName: "cfvpc"
+      Tags:
+        - Key: Name
+          Value: "PrivateInstance"
  
